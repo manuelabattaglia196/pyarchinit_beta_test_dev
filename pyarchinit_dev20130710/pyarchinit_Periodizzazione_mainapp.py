@@ -47,7 +47,9 @@ except:
 
 from  sortpanelmain import SortPanelMain
 
-from pyarchinit_PDF_administrator_mainapp import pyarchinit_PDFAdministrator
+from pyarchinit_PDF_administrator_mainapp import pyarchinit_PDFAdministrator  #sistema sperimentale non attivo
+from  pyarchinit_exp_Periodizzazionesheet_pdf import *
+
 class pyarchinit_Periodizzazione(QDialog, Ui_DialogPeriodoFase):
 	MSG_BOX_TITLE = "PyArchInit - Scheda Periodizzazione"
 	DATA_LIST = []
@@ -198,12 +200,17 @@ class pyarchinit_Periodizzazione(QDialog, Ui_DialogPeriodoFase):
 		self.comboBox_sito.addItems(sito_vl)
 
 	def on_pushButton_pdf_exp_pressed(self):
+		Periodizzazione_pdf_sheet = generate_Periodizzazione_pdf() #deve essere importata la classe
+		data_list = self.generate_list_pdf() #deve essere aggiunta la funzione
+		Periodizzazione_pdf_sheet.build_Periodizzazione_sheets(data_list) #deve essere aggiunto il file per generare i pdf
+		#codice per l'esportazione sperimentale dei PDF #
+		"""
 		dlg = pyarchinit_PDFAdministrator()
 		dlg.set_table_name(self.TABLE_NAME)
 		dlg.connect()
 		msg = QMessageBox.warning(self,'ATTENZIONE',"Vuoi creare un nuovo layout PFD?", QMessageBox.Cancel,1)
 		dlg.connect()
-##		dlg.on_pushButton_connect_pressed()
+		##		dlg.on_pushButton_connect_pressed()
 		if msg == 1:
 			dlg.on_pushButton_new_rec_pressed()
 			dlg.charge_list()
@@ -215,6 +222,47 @@ class pyarchinit_Periodizzazione(QDialog, Ui_DialogPeriodoFase):
 		dlg.add_id_list(id_list)
 
 		dlg.exec_()
+		"""
+	def generate_list_pdf(self):
+		periodo = ""
+		fase = ""
+		cron_iniz = ""
+		cron_fin = ""
+		
+		data_list = []
+		for i in range(len(self.DATA_LIST)):
+			
+			if self.DATA_LIST[i].periodo == None:
+				periodo = ""
+			else:
+				periodo = str(self.DATA_LIST[i].periodo)
+			
+			if self.DATA_LIST[i].fase == None:
+				fase = ""
+			else:
+				fase = str(self.DATA_LIST[i].fase)
+				
+			if self.DATA_LIST[i].cron_iniziale == None:
+				cron_iniz = ""
+			else:
+				cron_iniz = str(self.DATA_LIST[i].cron_iniziale)
+				
+			if self.DATA_LIST[i].cron_finale == None:
+				cron_fin = ""
+			else:
+				cron_fin = str(self.DATA_LIST[i].cron_finale)
+			
+			
+			data_list.append([
+			str(self.DATA_LIST[i].sito), 										#1 - Sito
+			str(periodo),															#2 - Area
+			str(fase),																#3 - US
+			str(cron_iniz),															#4 - definizione stratigrafica
+			str(cron_fin),															#5 - definizione intepretata
+			str(self.DATA_LIST[i].datazione_estesa),						#6 - descrizione
+			unicode(self.DATA_LIST[i].descrizione)						#7 - interpretazione
+		])
+		return data_list
 
 	#buttons functions
 	def on_pushButton_sort_pressed(self):
@@ -256,12 +304,17 @@ class pyarchinit_Periodizzazione(QDialog, Ui_DialogPeriodoFase):
 
 
 	def on_pushButton_new_rec_pressed(self):
-		#set the GUI for a new record
-		if  self.BROWSE_STATUS != "n":
-			self.BROWSE_STATUS = "n"
-			self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
-			self.empty_fields()
-			self.label_sort.setText(self.SORTED_ITEMS["n"])
+		if self.records_equal_check() == 1 and self.BROWSE_STATUS == "b":
+			msg = self.update_if(QMessageBox.warning(self,'Errore',"Il record e' stato modificato. Vuoi salvare le modifiche?", QMessageBox.Cancel,1))
+		#else:
+		self.enable_button_search(0)
+
+		#set the GUI for a new search
+
+		if self.BROWSE_STATUS != "f":
+			self.BROWSE_STATUS = "f"
+			
+			###
 
 			self.setComboBoxEditable(["self.comboBox_sito"],0)
 			self.setComboBoxEditable(["self.comboBox_periodo"],0)
@@ -270,9 +323,12 @@ class pyarchinit_Periodizzazione(QDialog, Ui_DialogPeriodoFase):
 			self.setComboBoxEnable(["self.comboBox_periodo"],"True")
 			self.setComboBoxEnable(["self.comboBox_fase"],"True")
 
-			self.set_rec_counter('', '')
-
-			self.enable_button(0)
+			###
+			self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
+			self.set_rec_counter('','')
+			self.label_sort.setText(self.SORTED_ITEMS["n"])
+			self.charge_list()
+			self.empty_fields()
 
 
 	def on_pushButton_save_pressed(self):
@@ -590,24 +646,27 @@ class pyarchinit_Periodizzazione(QDialog, Ui_DialogPeriodoFase):
 		rec_corr = self.REC_CORR
 		self.msg = msg
 		if self.msg == 1:
-			self.update_record()
-			id_list = []
-			for i in self.DATA_LIST:
-				id_list.append(eval("i."+ self.ID_TABLE))
-			self.DATA_LIST = []
-			if self.SORT_STATUS == "n":
-				temp_data_list = self.DB_MANAGER.query_sort(id_list, [self.ID_TABLE], 'asc', self.MAPPER_TABLE_CLASS, self.ID_TABLE)
-			else:
-				temp_data_list = self.DB_MANAGER.query_sort(id_list, self.SORT_ITEMS_CONVERTED, self.SORT_MODE, self.MAPPER_TABLE_CLASS, self.ID_TABLE)
-			for i in temp_data_list:
-				self.DATA_LIST.append(i)
-			self.BROWSE_STATUS = "b"
-			self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
-			if type(self.REC_CORR) == "<type 'str'>":
-				corr = 0
-			else:
-				corr = self.REC_CORR
-					
+			test = self.update_record()
+			if test == 1:
+				id_list = []
+				for i in self.DATA_LIST:
+					id_list.append(eval("i."+ self.ID_TABLE))
+				self.DATA_LIST = []
+				if self.SORT_STATUS == "n":
+					temp_data_list = self.DB_MANAGER.query_sort(id_list, [self.ID_TABLE], 'asc', self.MAPPER_TABLE_CLASS, self.ID_TABLE) #self.DB_MANAGER.query_bool(self.SEARCH_DICT_TEMP, self.MAPPER_TABLE_CLASS) #
+				else:
+					temp_data_list = self.DB_MANAGER.query_sort(id_list, self.SORT_ITEMS_CONVERTED, self.SORT_MODE, self.MAPPER_TABLE_CLASS, self.ID_TABLE)
+				for i in temp_data_list:
+					self.DATA_LIST.append(i)
+				self.BROWSE_STATUS = "b"
+				self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
+				if type(self.REC_CORR) == "<type 'str'>":
+					corr = 0
+				else:
+					corr = self.REC_CORR 
+				return 1
+			elif test == 0:
+				return 0
 					
 	#custom functions
 	def charge_records(self):

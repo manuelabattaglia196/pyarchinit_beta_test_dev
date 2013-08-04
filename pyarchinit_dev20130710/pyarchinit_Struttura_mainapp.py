@@ -634,23 +634,27 @@ class pyarchinit_Struttura(QDialog, Ui_DialogStruttura):
 		self.label_sort.setText(self.SORTED_ITEMS["n"])
 
 	def on_pushButton_new_search_pressed(self):
+		if self.records_equal_check() == 1 and self.BROWSE_STATUS == "b":
+			msg = self.update_if(QMessageBox.warning(self,'Errore',"Il record e' stato modificato. Vuoi salvare le modifiche?", QMessageBox.Cancel,1))
+		#else:
 		self.enable_button_search(0)
-		
-		self.setComboBoxEditable(["self.comboBox_sito"],1)
 
 		#set the GUI for a new search
+
 		if self.BROWSE_STATUS != "f":
 			self.BROWSE_STATUS = "f"
-			self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
-			self.empty_fields()
-			self.set_rec_counter('','')
-			self.label_sort.setText(self.SORTED_ITEMS["n"])
-
+			###
 			self.setComboBoxEditable(["self.comboBox_sito"],1)
 			self.setComboBoxEditable(["self.comboBox_sigla_struttura"],1)
 			self.setComboBoxEnable(["self.comboBox_sito"],True)
 			self.setComboBoxEnable(["self.comboBox_sigla_struttura"],True)
 			self.setComboBoxEnable(["self.numero_struttura"],True)
+			###
+			self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
+			self.set_rec_counter('','')
+			self.label_sort.setText(self.SORTED_ITEMS["n"])
+			self.charge_list()
+			self.empty_fields()
 
 	def on_pushButton_search_go_pressed(self):
 		if self.BROWSE_STATUS != "f":
@@ -747,7 +751,7 @@ class pyarchinit_Struttura(QDialog, Ui_DialogStruttura):
 		self.enable_button_search(1)
 
 	def on_pushButton_pdf_exp_pressed(self):
-		Struttura_pdf_sheet = generate_pdf() #deve essere importata la classe
+		Struttura_pdf_sheet = generate_struttura_pdf() #deve essere importata la classe
 		data_list = self.generate_list_pdf() #deve essere aggiunta la funzione
 		Struttura_pdf_sheet.build_Struttura_sheets(data_list) #deve essere aggiunto il file per generare i pdf
 
@@ -755,52 +759,6 @@ class pyarchinit_Struttura(QDialog, Ui_DialogStruttura):
 	def generate_list_pdf(self):
 		data_list = []
 		for i in range(len(self.DATA_LIST)):
-			
-			"""Sarebbe utile inserire la quota minima e massima di una struttura?
-
-			#assegnazione valori di quota mn e max
-			sito =  unicode(self.DATA_LIST[i].sito)
-			sigla_struttura = unicode(self.DATA_LIST[i].sigla_struttura)
-			numero_struttura = unicode(self.DATA_LIST[i].numero_struttura)
-			res = self.DB_MANAGER.select_quote_from_db_sql(sito, area, us)
-			quote = []
-
-			for sing_us in res:
-				sing_quota_value = str(sing_us[5])
-				if sing_quota_value[0] == '-':
-					sing_quota_value = sing_quota_value[:7]
-				else:
-					sing_quota_value = sing_quota_value[:6]
-
-				sing_quota = [sing_quota_value, sing_us[4]]
-				quote.append(sing_quota)
-			quote.sort()
-
-			if bool(quote) == True:
-				quota_min = '%s %s' % (quote[0][0], quote[0][1])
-				quota_max = '%s %s' % (quote[-1][0], quote[-1][1])
-			else:
-				quota_min = "Non inserita su GIS"
-				quota_max = "Non inserita su GIS"
-			"""
-			""" Sarebbe utile associare il numero delle piante alle strutture?"""
-			"""
-			#assegnazione numero di pianta
-			resus = self.DB_MANAGER.select_us_from_db_sql(sito, area, us, "2")
-			elenco_record = []
-			for us in resus:
-				elenco_record.append(us)
-
-			if bool(elenco_record) == True:
-				sing_rec = elenco_record[0]
-				elenco_piante = sing_rec[7]
-				if elenco_piante != None:
-					piante = elenco_piante
-				else:
-					piante = "US disegnata su base GIS"
-			else:
-				piante = "US disegnata su base GIS"
-			"""
 			data_list.append([
 			unicode(self.DATA_LIST[i].sito), 									#1 - Sito
 			unicode(self.DATA_LIST[i].sigla_struttura),									#2 - Area
@@ -827,26 +785,27 @@ class pyarchinit_Struttura(QDialog, Ui_DialogStruttura):
 		rec_corr = self.REC_CORR
 		self.msg = msg
 		if self.msg == 1:
-			self.update_record()
-			id_list = []
-			for i in self.DATA_LIST:
-				id_list.append(eval("i."+ self.ID_TABLE))
-			self.DATA_LIST = []
-			if self.SORT_STATUS == "n":
-				#self.testing('test_sort.txt', 'qua')
-				temp_data_list = self.DB_MANAGER.query_sort(id_list, [self.ID_TABLE], 'asc', self.MAPPER_TABLE_CLASS, self.ID_TABLE)
-			else:
-				temp_data_list = self.DB_MANAGER.query_sort(id_list, self.SORT_ITEMS_CONVERTED, self.SORT_MODE, self.MAPPER_TABLE_CLASS, self.ID_TABLE)
-
-			for i in temp_data_list:
-				self.DATA_LIST.append(i)
-
-			self.BROWSE_STATUS = "b"
-			self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
-			if type(self.REC_CORR) == "<type 'str'>":
-				corr = 0
-			else:
-				corr = self.REC_CORR
+			test = self.update_record()
+			if test == 1:
+				id_list = []
+				for i in self.DATA_LIST:
+					id_list.append(eval("i."+ self.ID_TABLE))
+				self.DATA_LIST = []
+				if self.SORT_STATUS == "n":
+					temp_data_list = self.DB_MANAGER.query_sort(id_list, [self.ID_TABLE], 'asc', self.MAPPER_TABLE_CLASS, self.ID_TABLE) #self.DB_MANAGER.query_bool(self.SEARCH_DICT_TEMP, self.MAPPER_TABLE_CLASS) #
+				else:
+					temp_data_list = self.DB_MANAGER.query_sort(id_list, self.SORT_ITEMS_CONVERTED, self.SORT_MODE, self.MAPPER_TABLE_CLASS, self.ID_TABLE)
+				for i in temp_data_list:
+					self.DATA_LIST.append(i)
+				self.BROWSE_STATUS = "b"
+				self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
+				if type(self.REC_CORR) == "<type 'str'>":
+					corr = 0
+				else:
+					corr = self.REC_CORR 
+				return 1
+			elif test == 0:
+				return 0
 
 
 	#custom functions

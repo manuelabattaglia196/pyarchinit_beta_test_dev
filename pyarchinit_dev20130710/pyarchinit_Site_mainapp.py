@@ -421,19 +421,27 @@ class pyarchinit_Site(QDialog, Ui_DialogSite):
 		self.label_sort.setText(self.SORTED_ITEMS["n"])
 
 	def on_pushButton_new_search_pressed(self):
-		#self.setComboBoxEditable()
+		if self.records_equal_check() == 1 and self.BROWSE_STATUS == "b":
+			msg = self.update_if(QMessageBox.warning(self,'Errore',"Il record e' stato modificato. Vuoi salvare le modifiche?", QMessageBox.Cancel,1))
+		#else:
 		self.enable_button_search(0)
+
 
 		#set the GUI for a new search
 		if self.BROWSE_STATUS != "f":
 			self.BROWSE_STATUS = "f"
 			self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
-			self.empty_fields()
+			
+			###
+			self.setComboBoxEnable(["self.comboBox_sito"],"True")
+			self.setComboBoxEnable(["self.textEdit_descrizione_site"],"False")
+			
+			###
+			self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
 			self.set_rec_counter('','')
 			self.label_sort.setText(self.SORTED_ITEMS["n"])
-			self.setComboBoxEnable(["self.comboBox_sito"],"True")
-			
-			self.setComboBoxEnable(["self.textEdit_descrizione_site"],"False")
+			self.charge_list()
+			self.empty_fields()
 
 	def on_pushButton_search_go_pressed(self):
 		if self.BROWSE_STATUS != "f":
@@ -455,43 +463,41 @@ class pyarchinit_Site(QDialog, Ui_DialogSite):
 				QMessageBox.warning(self, "ATTENZIONE", "Non e' stata impostata alcuna ricerca!!!",  QMessageBox.Ok)
 			else:
 				res = self.DB_MANAGER.query_bool(search_dict, "SITE")
-				if bool(search_dict) == False:
-					QMessageBox.warning(self, "ATTENZIONE", "Non e' stata impostata alcuna ricerca!!!",  QMessageBox.Ok)
+				if bool(res) == False:
+					QMessageBox.warning(self, "ATTENZIONE", "Non e' stato trovato alcun record!",  QMessageBox.Ok)
+
+					self.set_rec_counter(len(self.DATA_LIST), self.REC_CORR+1)
+					self.DATA_LIST_REC_TEMP = self.DATA_LIST_REC_CORR = self.DATA_LIST[0]
+
+					self.fill_fields(self.REC_CORR)
+					self.BROWSE_STATUS = "b"
+					self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
+
+					self.setComboBoxEnable(["self.comboBox_sito"],"False")
+					self.setComboBoxEnable(["self.textEdit_descrizione_site"],"True")
+
 				else:
-					res = self.DB_MANAGER.query_bool(search_dict, self.MAPPER_TABLE_CLASS)
+					self.DATA_LIST = []
 
-					if bool(res) == False:
-						QMessageBox.warning(self, "ATTENZIONE", "Non e' stato trovato alcun record!",  QMessageBox.Ok)
+					for i in res:
+						self.DATA_LIST.append(i)
 
-						self.set_rec_counter(len(self.DATA_LIST), self.REC_CORR+1)
-						self.DATA_LIST_REC_TEMP = self.DATA_LIST_REC_CORR = self.DATA_LIST[0]
-						self.fill_fields(self.REC_CORR)
-						self.BROWSE_STATUS = "b"
-						self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
+					self.REC_TOT, self.REC_CORR = len(self.DATA_LIST), 0
+					self.DATA_LIST_REC_TEMP = self.DATA_LIST_REC_CORR = self.DATA_LIST[0]
+					self.fill_fields()
+					self.BROWSE_STATUS = "b"
+					self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
+					self.set_rec_counter(len(self.DATA_LIST), self.REC_CORR+1)
 
-						self.setComboBoxEnable(["self.comboBox_sito"],"False")
-						self.setComboBoxEnable(["self.textEdit_descrizione_site"],"True")
-
+					if self.REC_TOT == 1:
+						strings = ("E' stato trovato", self.REC_TOT, "record")
 					else:
-						self.DATA_LIST = []
-						for i in res:
-							self.DATA_LIST.append(i)
-						self.REC_TOT, self.REC_CORR = len(self.DATA_LIST), 0
-						self.DATA_LIST_REC_TEMP = self.DATA_LIST_REC_CORR = self.DATA_LIST[0]
-						self.fill_fields()
-						self.BROWSE_STATUS = "b"
-						self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
-						self.set_rec_counter(len(self.DATA_LIST), self.REC_CORR+1)
+						strings = ("Sono stati trovati", self.REC_TOT, "records")
 
-						if self.REC_TOT == 1:
-							strings = ("E' stato trovato", self.REC_TOT, "record")
-						else:
-							strings = ("Sono stati trovati", self.REC_TOT, "records")
+					self.setComboBoxEnable(["self.comboBox_sito"],"False")
+					self.setComboBoxEnable(["self.textEdit_descrizione_site"],"True")
 
-						self.setComboBoxEnable(["self.comboBox_sito"],"False")
-						self.setComboBoxEnable(["self.textEdit_descrizione_site"],"True")
-
-						QMessageBox.warning(self, "Messaggio", "%s %d %s" % strings,  QMessageBox.Ok)
+					QMessageBox.warning(self, "Messaggio", "%s %d %s" % strings, QMessageBox.Ok)
 
 		self.enable_button_search(1)
 
@@ -515,24 +521,27 @@ class pyarchinit_Site(QDialog, Ui_DialogSite):
 		rec_corr = self.REC_CORR
 		self.msg = msg
 		if self.msg == 1:
-			self.update_record()
-			id_list = []
-			for i in self.DATA_LIST:
-				id_list.append(eval("i."+ self.ID_TABLE))
-			self.DATA_LIST = []
-			if self.SORT_STATUS == "n":
-				temp_data_list = self.DB_MANAGER.query_sort(id_list, [self.ID_TABLE], 'asc', self.MAPPER_TABLE_CLASS, self.ID_TABLE)
-			else:
-				temp_data_list = self.DB_MANAGER.query_sort(id_list, self.SORT_ITEMS_CONVERTED, self.SORT_MODE, self.MAPPER_TABLE_CLASS, self.ID_TABLE)
-
-			for i in temp_data_list:
-				self.DATA_LIST.append(i)
-			self.BROWSE_STATUS = "b"
-			self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
-			if type(self.REC_CORR) == "<type 'str'>":
-				corr = 0
-			else:
-				corr = self.REC_CORR
+			test = self.update_record()
+			if test == 1:
+				id_list = []
+				for i in self.DATA_LIST:
+					id_list.append(eval("i."+ self.ID_TABLE))
+				self.DATA_LIST = []
+				if self.SORT_STATUS == "n":
+					temp_data_list = self.DB_MANAGER.query_sort(id_list, [self.ID_TABLE], 'asc', self.MAPPER_TABLE_CLASS, self.ID_TABLE) #self.DB_MANAGER.query_bool(self.SEARCH_DICT_TEMP, self.MAPPER_TABLE_CLASS) #
+				else:
+					temp_data_list = self.DB_MANAGER.query_sort(id_list, self.SORT_ITEMS_CONVERTED, self.SORT_MODE, self.MAPPER_TABLE_CLASS, self.ID_TABLE)
+				for i in temp_data_list:
+					self.DATA_LIST.append(i)
+				self.BROWSE_STATUS = "b"
+				self.label_status.setText(self.STATUS_ITEMS[self.BROWSE_STATUS])
+				if type(self.REC_CORR) == "<type 'str'>":
+					corr = 0
+				else:
+					corr = self.REC_CORR 
+				return 1
+			elif test == 0:
+				return 0
 
 
 	#custom functions
